@@ -13,6 +13,7 @@ from struct import unpack,calcsize,pack
 from error import LoadError,SaveError
 from sources import *
 import cStringIO
+import os
 def sread(file,struct):
 	size=calcsize(struct)
 #	print 'Reading %s:%i' % (struct,size)
@@ -220,7 +221,10 @@ class c3dmmFile:
 		self.reset()
 		self.filename=filename
 		fop=open(filename,'rb') # you know my feelings on this issue.
-		self.id=sread(fop,'<8s')
+		fileid=self.id=sread(fop,'<8s')
+		if fileid[:5]=='v3dmm':
+			self.skipV3dmmHeader(fop)
+
 		self.version=sread(fop,'<HH')
 		marker=sread(fop,'<4B')
 		if not marker in [(1,0,3,3),(1,0,5,5)]:
@@ -238,6 +242,18 @@ class c3dmmFile:
 		self.quad_start=self.index_offset+20
 		self.load_quad_index(fop)
 		self.load_quads(fop)
+	
+	def skipV3dmmHeader(self, fop):
+		fop.seek(6, os.SEEK_SET)
+		num_expansions=sread(fop,'<L')
+		skip=8 # to skip over the already-read headers
+		for exp in range(num_expansions):
+			length,txtlength=sread(fop,'<LH')
+			fop.read(txtlength)
+			skip+=length+4
+		fop.seek(skip, os.SEEK_CUR)
+		print fop.tell()
+
 	def load_quad_index(self,fop):
 		fop.seek(self.quad_start+self.quads_length)
 		self.quad_index=[]
