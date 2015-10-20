@@ -63,21 +63,23 @@ def extractPIL(quad):
 
 
 
+def getImageFromMovie(path):
+	movie = c3dmmFile(path)
+	thumb = findFirstThum(movie)
+	im = extractPIL(thumb)
+	return im 
 
+def dumpPNG(im):
+	io = StringIO()
+	im.save(io, 'png')
+	sys.stdout.write(io.getvalue())
 
 if __name__=='__main__':
-	movie = c3dmmFile(sys.argv[1])
-
-	thumb = findFirstThum(movie)
-
-	im = extractPIL(thumb)
+	im=getImageFromMovie(sys.argv[1])
 
 	out_file = sys.argv[2]
 
 	if out_file == '-':
-		io = StringIO()
-		im.save(io, 'png')
-
-		sys.stdout.write(io.getvalue())
+		dumpPNG(im)
 	else:
 		im.save(sys.argv[2])
