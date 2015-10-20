@@ -254,7 +254,6 @@ class c3dmmFile:
 			skip+=length+4
 		fop.seek(skip, os.SEEK_CUR)
 		self.vmm_offset = fop.tell() - 8 # 8 is the CHN2 COS header 
-		print fop.tell()
 
 	def load_quad_index(self,fop):
 		fop.seek(self.vmm_offset + self.quad_start + self.quads_length)
