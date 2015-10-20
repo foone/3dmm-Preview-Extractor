@@ -224,13 +224,13 @@ class c3dmmFile:
 		self.version=sread(fop,'<HH')
 		marker=sread(fop,'<4B')
 		if not marker in [(1,0,3,3),(1,0,5,5)]:
-			raise LoadError, 'Bad/missing marker at %i',fop.tell()
+			raise LoadError('Bad/missing marker at %i' % fop.tell())
 		self.file_length,self.index_offset=sread(fop,'<2L')
 		self.index_length,dummy=sread(fop,'<2L')
 		fop.seek(self.index_offset)
 		marker=sread(fop,'<4B')
 		if not marker in [(1,0,3,3),(1,0,5,5)]:
-			raise LoadError, 'Bad/missing marker at %i',fop.tell()
+			raise LoadError('Bad/missing marker at %i' % fop.tell())
 		self.quad_count,self.quads_length=sread(fop,'<LL')
 		unk=sread(fop,'<ll')
 		if unk!=(-1,20):
@@ -290,7 +290,7 @@ class c3dmmFile:
 						ustr+=unichr(char)
 					cquad['string']=ustr
 				else:
-					raise LoadError,'Expected string marker 3,3 or 5,5 but got %i,%i!' % marker
+					raise LoadError('Expected string marker 3,3 or 5,5 but got %i,%i!' % marker)
 			else:
 				cquad['string']=None
 			self.quads.append(cquad)
