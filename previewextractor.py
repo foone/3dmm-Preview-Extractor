@@ -4,6 +4,8 @@ from PIL import Image
 from cStringIO import StringIO
 from error import CompressedError,LoadError
 from struct import unpack
+from zipfile import ZipFile, BadZipfile
+from rarfile import RarFile
 
 PALETTE = """
 eJxjYGBoYADhBjDVAGYdOHBAPtVTf3puiPNGhvr6f///CwgIiIqKcnNzS0tL6+joeHp6pqWlFRcX
@@ -63,9 +65,29 @@ def extractPIL(quad):
 	return surf
 
 
+def loadMovieFromArchive(archive):
+	for filename in archive.namelist():
+		if filename.lower().endswith(('.3mm','.vmm')):
+			movie = c3dmmFile()
+			movie.loadFromObject(StringIO(archive.read(filename)))
+			return movie
+	raise LoadError('No 3mm/vmm found in archive')
+
+
+def loadMovie(path):
+	try:
+		return c3dmmFile(path)
+	except LoadError as err:
+		if 'Not a 3mm/vmm file' in str(err):
+			try:
+				return loadMovieFromArchive(ZipFile(path))
+			except BadZipfile:
+				return loadMovieFromArchive(RarFile(path))
+		else:
+			raise
 
 def getImageFromMovie(path):
-	movie = c3dmmFile(path)
+	movie = loadMovie(path)
 	thumb = findFirstThum(movie)
 	im = extractPIL(thumb)
 	return im 

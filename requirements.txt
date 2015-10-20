@@ -1,0 +1,4 @@
+Pillow==3.0.0
+argparse==1.2.1
+rarfile==2.7
+wsgiref==0.1.2

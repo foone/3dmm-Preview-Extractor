@@ -56,4 +56,21 @@ class FileSource(Source):
 	def shiftOffset(self,amount):
 		self.offset+=amount
 
-
+class LazyFileObjectSource(Source):
+	def __init__(self, fop, offset, length):
+		self.data=None
+		self.fop=fop
+		self.offset=offset
+		self.length=length
+	def get_length(self):
+		return self.length
+	def get(self):
+		if self.data is None:
+			fop=self.fop
+			old_pos = fop.tell()
+			fop.seek(self.offset)
+			self.data=fop.read()
+			fop.seek(old_pos)
+			del self.fop
+			del self.offset
+		return self.data

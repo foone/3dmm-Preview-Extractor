@@ -32,6 +32,7 @@ def refcmp(a, b):
 			return s
 	else:
 		return f
+
 class BaseQuad:
 	def __init__(self,type,id):
 		self.type=type
@@ -204,13 +205,11 @@ class c3dmmFileOut:
 			quad.source.make_memory_source()
 class c3dmmFile:
 	def __init__(self,filename=None,cache=False):
-		self.cache=cache
 		if filename is not None:
 			self.load(filename)
 		else:
 			self.reset()
 	def reset(self):
-		self.filename=None
 		self.id='        '
 		self.version=(0,0)
 		self.file_length=self.index_offset=0
@@ -218,24 +217,33 @@ class c3dmmFile:
 		self.quad_index=[]
 		self.quads=[]
 		self.vmm_offset = 0
+	
 	def load(self,filename):
+		fop=open(filename,'rb')
+		self.loadFromObject(fop)
+
+	def loadFromObject(self, fop):
 		self.reset()
-		self.filename=filename
-		fop=open(filename,'rb') # you know my feelings on this issue.
+		self.fop=fop # yes, we keep it around forever
+		def smartTell(offset=0):
+			return fop.tell()-self.vmm_offset-offset
+
 		fileid=self.id=sread(fop,'<8s')
 		if fileid[:5]=='v3dmm':
 			self.skipV3dmmHeader(fop)
+		elif fileid!='CHN2 COS':
+			raise LoadError('Not a 3mm/vmm file! ID is %s' % fileid)
 
 		self.version=sread(fop,'<HH')
 		marker=sread(fop,'<4B')
 		if not marker in [(1,0,3,3),(1,0,5,5)]:
-			raise LoadError('Bad/missing marker at %i' % fop.tell()-4)
+			raise LoadError('Bad/missing marker at %i. Expected 1,0,3/5,3/5, got %s' % (smartTell(-4),marker))
 		self.file_length,self.index_offset=sread(fop,'<2L')
 		self.index_length,dummy=sread(fop,'<2L')
 		fop.seek(self.vmm_offset + self.index_offset)
 		marker=sread(fop,'<4B')
 		if not marker in [(1,0,3,3),(1,0,5,5)]:
-			raise LoadError('Bad/missing marker at %i. Got %s' % (fop.tell()-4,marker))
+			raise LoadError('Bad/missing marker at %i. Got %s' % (smartTell(-4),marker))
 		self.quad_count,self.quads_length=sread(fop,'<LL')
 		unk=sread(fop,'<ll')
 		if unk!=(-1,20):
@@ -247,13 +255,18 @@ class c3dmmFile:
 	def skipV3dmmHeader(self, fop):
 		fop.seek(6, os.SEEK_SET)
 		num_expansions=sread(fop,'<L')
-		skip=4
+		skip=0
 		for exp in range(num_expansions):
 			length,txtlength=sread(fop,'<LH')
 			fop.read(txtlength)
-			skip+=length+4
+			if length>0:
+				skip+=length+4
 		fop.seek(skip, os.SEEK_CUR)
-		self.vmm_offset = fop.tell() - 8 # 8 is the CHN2 COS header 
+		self.vmm_offset = fop.tell()
+		fileid = self.id = sread(fop,'<8s')
+		if fileid != 'CHN2 COS':
+			raise LoadError('VMM wrapped file is not a 3mm file. ID is %s' % fileid)
+		
 
 	def load_quad_index(self,fop):
 		fop.seek(self.vmm_offset + self.quad_start + self.quads_length)
@@ -282,9 +295,7 @@ class c3dmmFile:
 			cquad['mode']=mode
 			cquad['section_offset']=section_offset
 			cquad['section_length']=section_length
-			cquad['source']=FileSource(self.filename,section_offset+self.vmm_offset,section_length)
-			if self.cache:
-				cquad['source']=cquad['source'].make_memory_source()
+			cquad['source']=LazyFileObjectSource(fop,section_offset+self.vmm_offset,section_length)
 			for j in range(references):
 				ref_type=sread(fop,'<4s')[::-1]
 				ref_id,ref_ref_id=sread(fop,'<2L')
