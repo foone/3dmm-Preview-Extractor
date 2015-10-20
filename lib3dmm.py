@@ -10,7 +10,7 @@
 
 
 from struct import unpack,calcsize,pack
-from error import LoadError,SaveError
+from error import LoadError,SaveError,LoadError
 from sources import *
 import cStringIO
 import os
@@ -217,6 +217,7 @@ class c3dmmFile:
 		self.index_length=self.quad_count=self.quads_length=self_quad_start=0
 		self.quad_index=[]
 		self.quads=[]
+		self.vmm_offset = 0
 	def load(self,filename):
 		self.reset()
 		self.filename=filename
@@ -228,13 +229,13 @@ class c3dmmFile:
 		self.version=sread(fop,'<HH')
 		marker=sread(fop,'<4B')
 		if not marker in [(1,0,3,3),(1,0,5,5)]:
-			raise LoadError('Bad/missing marker at %i' % fop.tell())
+			raise LoadError('Bad/missing marker at %i' % fop.tell()-4)
 		self.file_length,self.index_offset=sread(fop,'<2L')
 		self.index_length,dummy=sread(fop,'<2L')
-		fop.seek(self.index_offset)
+		fop.seek(self.vmm_offset + self.index_offset)
 		marker=sread(fop,'<4B')
 		if not marker in [(1,0,3,3),(1,0,5,5)]:
-			raise LoadError('Bad/missing marker at %i' % fop.tell())
+			raise LoadError('Bad/missing marker at %i. Got %s' % (fop.tell()-4,marker))
 		self.quad_count,self.quads_length=sread(fop,'<LL')
 		unk=sread(fop,'<ll')
 		if unk!=(-1,20):
@@ -246,25 +247,27 @@ class c3dmmFile:
 	def skipV3dmmHeader(self, fop):
 		fop.seek(6, os.SEEK_SET)
 		num_expansions=sread(fop,'<L')
-		skip=8 # to skip over the already-read headers
+		skip=4
 		for exp in range(num_expansions):
 			length,txtlength=sread(fop,'<LH')
 			fop.read(txtlength)
 			skip+=length+4
 		fop.seek(skip, os.SEEK_CUR)
+		self.vmm_offset = fop.tell() - 8 # 8 is the CHN2 COS header 
 		print fop.tell()
 
 	def load_quad_index(self,fop):
-		fop.seek(self.quad_start+self.quads_length)
+		fop.seek(self.vmm_offset + self.quad_start + self.quads_length)
 		self.quad_index=[]
 		for i in range(self.quad_count):
 			self.quad_index.append(sread(fop,'<2L')) 
+	
 	def load_quads(self,fop):
 		self.quads=[]
 		for i in range(self.quad_count):
 			cquad={}
 			offset,length=self.quad_index[i]
-			fop.seek(self.quad_start+offset)
+			fop.seek(self.vmm_offset + self.quad_start+offset)
 			type=sread(fop,'<4s')[::-1]
 			id,section_offset=sread(fop,'<2L')
 			mode=sread(fop,'<B')
@@ -280,7 +283,7 @@ class c3dmmFile:
 			cquad['mode']=mode
 			cquad['section_offset']=section_offset
 			cquad['section_length']=section_length
-			cquad['source']=FileSource(self.filename,section_offset,section_length)
+			cquad['source']=FileSource(self.filename,section_offset+self.vmm_offset,section_length)
 			if self.cache:
 				cquad['source']=cquad['source'].make_memory_source()
 			for j in range(references):
