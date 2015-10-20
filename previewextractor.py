@@ -2,18 +2,19 @@ from lib3dmm import c3dmmFile
 import sys
 from PIL import Image
 from cStringIO import StringIO
-from error import CompressedError
+from error import CompressedError,LoadError
 from struct import unpack
 
-PALETTE = """eJz7z/D/P24U4ryRsb7+/fv3AgICoqKi3Nzc0tLSOjo6np6eaWlpxcXF9Q0NU6ZMWb169bZt244c
-OXLx4sV79+69fPny48ePP3/+FBfXl5Y2k5B3VtSJMbHv9nJcEOK5JT3mdFnOhdqor+3pX/sKv7dX
-/Vrc+mfL7L+7NvzVkRZw1ZLMdlGfGGu2scjpZIP33Z6gF1NDXyyMfrEx4cW2rBcH0l8cKHhxIv/F
-hYIX56ssuLlCpCTKZWR6JXhWywmdE5d5o6DwwslJRE5HydDDwCXV3K/YLrzJNbHfv2BZUuPmLm6v
-jXwJNwVL3wg3vFXvemcz9WPE0s9lW+2lGDO0mSbZMi93Zd7tx3IhjOV9JuuvSmkdHhNP4fA0mcoy
-+e4W5TmT1deu1D2x3eFqnDtTRzrTxi7mY7NYbm9j+XCc5dcl6d83LY2M+EJCxEpKFFta1KZO1V66
-1GDvXvNTp7w0pMSdddTjbM2zXe0r/N3bwv1npUStKM0RM+JTDRY3KVG0alV1nqrtuUw/dJ9Z2mlP
-TTFxV1X1RBOzfBu7Gme3Li/f+aGRa9Oz2CxVuRLt+NrDBGYlC60tEDlQLXajS/nlLGVlZSsrq5CQ
-kJiYGGNjYzwROorQEAB28ZHR""".decode('base64').decode('zlib')
+PALETTE = """
+eJxjYGBoYADhBjDVAGYdOHBAPtVTf3puiPNGhvr6f///CwgIiIqKcnNzS0tL6+joeHp6pqWlFRcX
+NzQ0TJkyZfXq1du2bTty5MjFixfv3bv38uXLjx8//vz5U1xcX1raTELeWVEnxsS+28txQYjnlvSY
+02U5F2qjvranf+0r/N5e9Wtx658ts//u2vBXR1rAVUsy20V9YqzZxiKnkw3ed3uCXkwNfbEw+sXG
+hBfbsl4cSH9xoODFifwXFwpenK+y4OYKkZIol5HpleBZLSd0TlzmjYLCCycnETkdJUMPA5dUc79i
+u/Am18R+/4JlSY2bu7i9NvIl3BQsfSPc8Fa9653N1I8RSz+XbbWXYszQZppky7zclXm3H8uFMJb3
+may/KqV1eEw8hcPTZCrL5LtblOdMVl+7UvfEdoerce5MHelMG7uYj81iub2N5cNxll+XpH/ftDQy
+4gsJESspUWxpUZs6VXvpUoO9e81PnfLSkBJ31lGPszXPdrWv8HdvC/eflRK1ojRHzIhPNVjcpETR
+qlXVeaq25zL90H1maac9NcXEXVXVE03M8m3sapzdurx854dGrk3PYrNU5Uq042sPE5iVLLS2QORA
+tdiNLuWXs5SVla2srEJCQmJiYoyNjRn+M4wiOFqwYAkwlQKZQPZ/MPUfzPoP5gAAt7Qomg==""".strip().decode('base64').decode('zlib')
 
 def findFirstScene(movie):
 	mvie = None
@@ -40,7 +41,7 @@ def extractPIL(quad):
 	marker=unpack('<4B',strmarker)
 	if strmarker in ('KCDC','KCD2'):
 		raise CompressedError,'Section is compressed'
-	if marker not in ((1,0,3,3),(1,0,5,5)):	raise LoadError('Bad marker')
+	if marker not in ((1,0,3,3),(1,0,5,5)):	raise LoadError('Bad marker: %s' % (marker,))
 	junk,x,y,w,h,filesize=unpack('<6l',fop.read(24))
 	w-=x
 	h-=y
