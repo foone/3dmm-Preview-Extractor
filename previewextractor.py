@@ -6,6 +6,7 @@ from error import CompressedError,LoadError
 from struct import unpack
 from zipfile import ZipFile, BadZipfile
 from rarfile import RarFile
+import argparse
 
 PALETTE = """
 eJxjYGBoYADhBjDVAGYdOHBAPtVTf3puiPNGhvr6f///CwgIiIqKcnNzS0tL6+joeHp6pqWlFRcX
@@ -18,20 +19,19 @@ may/KqV1eEw8hcPTZCrL5LtblOdMVl+7UvfEdoerce5MHelMG7uYj81iub2N5cNxll+XpH/ftDQy
 qlXVeaq25zL90H1maac9NcXEXVXVE03M8m3sapzdurx854dGrk3PYrNU5Uq042sPE5iVLLS2QORA
 tdiNLuWXs5SVla2srEJCQmJiYoyNjRn+M4wiOFqwYAkwlQKZQPZ/MPUfzPoP5gAAt7Qomg==""".strip().decode('base64').decode('zlib')
 
-def findFirstScene(movie):
+def getSceneList(movie):
 	mvie = None
 	for quad in movie.quads:
 		if quad['type']=='MVIE':
 			mvie = quad
 	if mvie:
 		refs=sorted(mvie['references'],key=lambda ref:ref['ref_id'])
-		SCENs=[ref for ref in refs if ref['type']=='SCEN']
-		return SCENs[0]
+		SCENs=[movie.find_quad(ref['type'],ref['id']) for ref in refs if ref['type']=='SCEN']
+		return SCENs
 		
 
-def findFirstThum(movie):
-	scene = findFirstScene(movie)
-	scene_quad = movie.find_quad(scene['type'],scene['id'])
+def findFirstThum(movie, scenes):
+	scene_quad = scenes[0]
 	thum = [ref for ref in scene_quad['references'] if ref['type']=='THUM'][0]
 	
 	return movie.find_quad(thum['type'], thum['id'])
@@ -88,7 +88,8 @@ def loadMovie(path):
 
 def getImageFromMovie(path):
 	movie = loadMovie(path)
-	thumb = findFirstThum(movie)
+	scenes = getSceneList(movie)
+	thumb = findFirstThum(movie, scenes)
 	im = extractPIL(thumb)
 	return im 
 
@@ -98,11 +99,17 @@ def dumpPNG(im):
 	sys.stdout.write(io.getvalue())
 
 if __name__=='__main__':
-	im=getImageFromMovie(sys.argv[1])
+	parser = argparse.ArgumentParser()
+	parser.add_argument('movie', help='.3mm/.vmm(or .zip/.rar containing same) of movie to extract previews from')
+	parser.add_argument('image', help='image path to write to (- to dump PNG to stdout)')
 
-	out_file = sys.argv[2]
 
-	if out_file == '-':
+	args=parser.parse_args()
+
+	im=getImageFromMovie(args.movie)
+
+
+	if args.image == '-':
 		dumpPNG(im)
 	else:
-		im.save(sys.argv[2])
+		im.save(args.image)
